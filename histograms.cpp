@@ -49,6 +49,27 @@ void Histograms::CorrectImages(char* first_name, char* second_name, float angle)
     }
 }
 
+void Histograms::VisualizeHistograms(char *name) {
+    if (this->first_hist.size() == 0 || this->second_hist.size() == 0) {
+//      throw
+    }
+    std::ofstream out;          // поток для записи
+    out.open(name); // окрываем файл для записи
+    if (out.is_open()) {
+        out << this->first_hist.size() << '\n';
+        for (float& elem : this->first_hist) {
+            out << elem << ' ';
+        }
+        out << '\n';
+        for (float& elem : this->second_hist) {
+            out << elem << ' ';
+        }
+    } else {
+//        throw
+    }
+    out.close();
+}
+
 void Histograms::SetPartThreshold(float part_threshold) {
     if (part_threshold <= 0 || part_threshold >= 1) {
         throw Exceptions("0 < Part_threshold < 1");
@@ -115,13 +136,19 @@ void Histograms::SearchImportantPart() {
 
 void Histograms::CutImportantPart() {
     for (size_t i = 0; i < this->bound * 4; i++) {
-        for (size_t j = 0; j < this->first.width; j++) {
-            int index;
-            if (i <= this->bound * 2) {
-                index = int(fmax(0, this->index_left - this->bound + i));
-            } else {
-                index = int(fmin(this->first.height, this->index_right - this->bound * 3 + i));
+        int index;
+        if (i <= this->bound * 2) {
+            if (this->index_left - this->bound + i < 0) {
+                continue;
             }
+            index = int(fmax(0, this->index_left - this->bound + i));
+        } else {
+            if (this->index_right - this->bound * 3 + i > this->first.height) {
+                break;
+            }
+            index = int(fmin(this->first.height, this->index_right - this->bound * 3 + i));
+        }
+        for (size_t j = 0; j < this->first.width; j++) {
             if (this->first.mod[index][j] >= this->threshold) {
 //                    this->first_image.push_back(this->first.mod[int(fmax(0, this->index_left - this->bound + i))][j]);
                 this->first_image.push_back(std::atan2(this->first.grad_y[index][j], this->first.grad_x[index][j]) / M_PI * 180);
@@ -189,7 +216,6 @@ void Histograms::SearchAngle(float accuracy) {
 //    float t = this->second_hist[0];
 //    this->second_hist.pop_front();
 //    this->second_hist.push_back(t);
-    std::cout << accuracy * 2;
 ////    for (int angle = 1; angle < 360 / (accuracy * 2); angle++) {
     for (int angle = 1; angle < 5 / (accuracy * 2); angle++) {
         float current_diff = this->CompareHistograms(this->first_hist, this->second_hist);
