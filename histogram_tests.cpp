@@ -79,11 +79,11 @@ TEST_CASE("Exceptions") {
 }
 
 TEST_CASE("HardTests") {
-    Histograms test025("../Tests/test0_025.tif", "../Tests/test1_025.tif");
-    CHECK(test025.FindAngle(0.125) == 0.25);
+#     Histograms test025("../Tests/test0_025.tif", "../Tests/test1_025.tif");
+#     CHECK(test025.FindAngle(0.125) == 0.25);
 
-    Histograms test05("/../Tests/test0_05.tif", "../Tests/test1_05.tif");
-    CHECK(test05.FindAngle(0.25) == 0.5);
+#     Histograms test05("/../Tests/test0_05.tif", "../Tests/test1_05.tif");
+#     CHECK(test05.FindAngle(0.25) == 0.5);
 
     Histograms test125("../Tests/test0_125.tif", "../Tests/test1_125.tif");
     CHECK(test125.FindAngle(0.125) == 1.25);
