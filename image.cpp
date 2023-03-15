@@ -5,8 +5,10 @@
 
 Histograms::Image::Image(const char *name) : name(name) {
     this->image = cv::imread(this->name, cv::IMREAD_ANYDEPTH);
+    cv::rotate(this->image, this->image, cv::ROTATE_90_CLOCKWISE);
     this->height = this->image.rows;
     this->width = this->image.cols;
+    std::cout << this->height << ' ' << this->width;
 }
 
 Histograms::Image::Image(const Image &other) {
@@ -41,9 +43,9 @@ Histograms::Image::~Image() {
 void Histograms::Image::Gradients() {
     cv::Mat gradients;
 
-    cv::Sobel(this->image, gradients,  CV_32F, 1, 0);
+    cv::Sobel(this->image, gradients,  CV_32F, 1, 0, 1);
     this->grad_x = MatToArray(gradients);
-    cv::Sobel(this->image, gradients,  CV_32F, 0, 1);
+    cv::Sobel(this->image, gradients,  CV_32F, 0, 1, 1);
     this->grad_y = MatToArray(gradients);
 }
 
@@ -70,7 +72,7 @@ void Histograms::Image::CorrectImage() {
     this->Gradients();
     this->Mod();
 //    if (this->MaxInArray(this->grad_x) > this->MaxInArray(this->grad_y)) {
-    this->Transposition();
+//    this->Transposition();
 //    }
 }
 
