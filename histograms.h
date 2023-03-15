@@ -11,6 +11,7 @@
 #include "opencv2/imgproc.hpp"
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
+#include <fstream>
 
     /*!
         \brief Класс Histograms позволяет находить угол отклонения оси по двум изображениям и корректировать его.
@@ -125,7 +126,7 @@ private:
     };
 
     float diff_angle = -365;
-    float part_threshold = 0.20;
+    float part_threshold = 0.2;
     float part_bound = 0.30;
     float threshold;
     int bound;
@@ -187,6 +188,11 @@ public:
         * @note angle - необязательный параметр, если его не указать, то изображения будут скорректированы по углы, найденному алгоритмом
     */
     void CorrectImages(char* first_name, char* second_name, float angle = -365);
+    /*!
+        * Создает файл с заданным именем, который затем можно визуализировать с помощью
+        * @param name - путь к файлу, в который надо будет сохранить гистограммы
+    */
+    void VisualizeHistograms(char* name);
 
 private:
     class Exceptions : public std::exception {
