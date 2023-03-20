@@ -3,20 +3,17 @@
 #include <iostream>
 
 
-Histograms::Image::Image(const char *name) : name(name) {
+Histograms::Image::Image(const std::string name) : name(name) {
+//    this->name = name;
     this->image = cv::imread(this->name, cv::IMREAD_ANYDEPTH);
-    cv::rotate(this->image, this->image, cv::ROTATE_90_CLOCKWISE);
-    this->height = this->image.rows;
-    this->width = this->image.cols;
-    std::cout << this->height << ' ' << this->width;
 }
 
 Histograms::Image::Image(const Image &other) {
     this->height = other.height;
     this->width = other.width;
-    this->grad_x = other.grad_x;
-    this->grad_y = other.grad_y;
-    this->mod = other.mod;
+    this->mag = other.mag;
+    this->flipped = other.flipped;
+    this->angles = other.angles;
     this->image = other.image.clone();
 
     this->counter++;
@@ -27,9 +24,9 @@ Histograms::Image &Histograms::Image::operator=(const Image &other) {
 
     this->height = other.height;
     this->width = other.width;
-    this->grad_x = other.grad_x;
-    this->grad_y = other.grad_y;
-    this->mod = other.mod;
+    this->mag = other.mag;
+    this->flipped = other.flipped;
+    this->angles = other.angles;
     this->image = other.image.clone();
 
     this->counter++;
@@ -40,81 +37,57 @@ Histograms::Image::~Image() {
     this->ClearAll();
 }
 
-void Histograms::Image::Gradients() {
-    cv::Mat gradients;
+void Histograms::Image::MagAngles() {
+    cv::Mat gx, gy, mag, angles;
+    cv::Sobel(this->image, gx,  CV_32F, 1, 0, 1);
+    cv::Sobel(this->image, gy,  CV_32F, 0, 1, 1);
+    cv::cartToPolar(gx, gy, mag, angles, 1);
 
-    cv::Sobel(this->image, gradients,  CV_32F, 1, 0, 1);
-    this->grad_x = MatToArray(gradients);
-    cv::Sobel(this->image, gradients,  CV_32F, 0, 1, 1);
-    this->grad_y = MatToArray(gradients);
-}
-
-void Histograms::Image::Mod() {
-    this->mod = new float*[this->height];
-    for (size_t i = 0; i < this->height; i++) {
-        this->mod[i] = new float[this->width];
-        for (size_t j = 0; j < this->width; j++) {
-            this->mod[i][j] = std::sqrt(this->grad_x[i][j] * this->grad_x[i][j] + this->grad_y[i][j] * this->grad_y[i][j]);
-        }
-    }
+    this->mag = MatToArray(mag);
+    this->angles = MatToArray(angles);
 }
 
 void Histograms::Image::Transposition() {
-    this->grad_x = TransposeArray(this->grad_x);
-    this->grad_y = TransposeArray(this->grad_y);
-    this->mod = TransposeArray(this->mod);
-    size_t t = this->height;
-    this->height = this->width;
-    this->width = t;
+    cv::transpose(this->image, this->image);
+    this->height = this->image.rows;
+    this->width = this->image.cols;
+}
+
+void Histograms::Image::Flip() {
+    cv::flip(this->image, this->image, 1);
+    if (this->flipped == 0) {
+        this->flipped += 1;
+    } else {
+        this->flipped = 0;
+    }
 }
 
 void Histograms::Image::CorrectImage() {
-    this->Gradients();
-    this->Mod();
-//    if (this->MaxInArray(this->grad_x) > this->MaxInArray(this->grad_y)) {
-//    this->Transposition();
-//    }
+    this->Transposition();
+    this->MagAngles();
+    this->height -= 2;
+    this->width -= 2;
 }
 
 void Histograms::Image::WriteImage(char* name, float angle) {
+    cv::transpose(this->image, this->image);
+    if (this->flipped == 1) {
+        this->Flip();
+    }
     cv::Mat rotation_matrix = cv::getRotationMatrix2D(cv::Point2f(this->width / 2, this->height / 2), angle / 2, 1.0);
     cv::Mat fixed_matrix_first;
     cv::warpAffine(this->image, fixed_matrix_first, rotation_matrix, this->image.size(), cv::INTER_CUBIC);
     cv::imwrite(name, fixed_matrix_first);
 }
 
-float Histograms::Image::MaxInArray(float **array) {
-    float max = -1;
-    for (size_t i = 0; i < this->height; i++) {
-        for (size_t j = 0; j < this->width; j++) {
-            if (abs(array[i][j]) > max) {
-                max = abs(array[i][j]);
-            }
-        }
-    }
-    return max;
-}
-
-float** Histograms::Image::TransposeArray(float **array) {
-    float** new_array = new float*[this->width];
-    for (size_t i = 0; i < this->width; i++) {
-        new_array[i] = new float[this->height];
-        for (size_t j = 0; j < this->height; j++) {
-            new_array[i][j] = array[j][i];
-        }
-    }
-    ClearMemory(array);
-    return new_array;
-}
-
 float** Histograms::Image::MatToArray(cv::Mat &mat) {
-    float **array = new float*[mat.rows];
-    for (int i=0; i<mat.rows; ++i)
-        array[i] = new float[mat.cols];
+    float **array = new float*[mat.rows-2];
+    for (int i=0; i<mat.rows-2; ++i)
+        array[i] = new float[mat.cols-2];
 
-    for (int i=0; i<mat.rows; ++i)
-        for (size_t j = 0; j < mat.cols; j++)
-          array[i][j] = mat.at<float>(i, j);
+    for (int i=1; i<mat.rows-1; ++i)
+        for (size_t j = 1; j < mat.cols-1; j++)
+            array[i-1][j-1] = mat.at<float>(i, j);
 
     return array;
 }
@@ -130,9 +103,8 @@ void Histograms::Image::ClearMemory(float **array) {
 
 void Histograms::Image::ClearAll() {
     if (this->counter - 1 == 0) {
-        ClearMemory(grad_x);
-        ClearMemory(grad_y);
-        ClearMemory(mod);
+        ClearMemory(mag);
+        ClearMemory(angles);
     }
     this->counter--;
 }
