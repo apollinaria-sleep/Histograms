@@ -18,13 +18,12 @@
         \details Каждый объект класса Histograms хранит в себе следующую информацию:
         * diff_angle - угол отклонения оси, найденный по алгоритму
         * part_threshold - доля пикселей изображения, которую отсечет алгоритм
-        * threshold - значение, по которому происходит отсечение
+        * threshold - значения, по которому происходит отсечение для каждого изображения
         * part_bound - доля пикселей изображения, которые попадут в рамку
         * bound - размер рамки
         * first - первое обработанное изображение
         * second - второе обработанное изображение
-        * index_left - индекс середины первой рамки
-        * index_right - индекс середины второй рамки
+        * indexes - индексы, которые показывают положение середины рамки для каждого изображения
         * first_image - углы изменения интенсивности первого изображения в рамке с учетом threshold
         * second_image - углы изменения интенсивности второго изображения в рамке с учетом threshold
         * first_hist - гистограмма по напрвлениям для первого изображения
@@ -35,39 +34,34 @@ private:
     /*!
         \brief Класс Image реализует обработку изображений типа .tif.
         \details Каждый объект класса Image хранит в себе следующую информацию:
-        * name - путь к исходному изображению
         * height - высота изображения после преобразований внутри Image
         * width - ширина изображения после преобразований внутри Image
-        * counter - счетчик ссылок на объект
-        * image - изображение
-        * grad_x - указатель на массив размера (height, width) с градиентами по оси х
-        * grad_y - указатель на массив размера (height, width) с градиентами по оси y
-        * mod - указатель на массив размера (height, width) c sqrt(grad_x^2 + grad_y^2)
+        * mag - указатель на массив размера (height, width) c sqrt(grad_x^2 + grad_y^2)
+        * angles - указатель на массив с углами atan2(grad_x, grad_y)
     */
     class Image {
     public:
-        const char* name;
         size_t height;
         size_t width;
-        size_t counter = 1;
-        cv::Mat image;
-        float** grad_x = nullptr;
-        float** grad_y = nullptr;
-        float** mod = nullptr;
+        float** mag = nullptr;
+        float** angles = nullptr;
 
         Image() = default;
         /*!
             * Создает объект класса Image
             * @param name путь к изображению
-            * @param flip - требуется ли отзеркалить изображение
         */
-        Image(const char* name);
+        Image(const std::string name);
         Image(const Image &other);
         Image &operator=(const Image &other);
         ~Image();
 
         /*!
-            * Последовательно рассчитывает градиенты изображения, mod, транспонирует изображение, если это требуется
+            * Переворачивает изображение вдоль оси У
+        */
+        void Flip();
+        /*!
+            * Последовательно транспонирует изображение, рассчитывает градиенты изображения c помощью оператора Собеля, углы и модули
         */
         void CorrectImage();
         /*!
@@ -79,21 +73,12 @@ private:
         void WriteImage(char* name, float angle = 0);
 
     private:
-        /*!
-            * Ищет максимальное по модулю значение в массиве по указателю
-            * @param array - указатель на массив размера (height, width)
-            * @return Максимальное значение в массиве по указателю
-            * @note Массив по указателю обязательно должен совпадать по размеру с изображением
-        */
-        float MaxInArray(float** array);
-        /*!
-            * Транспонирует массив по указателю
-            * @param array - указатель на массив размера (height, width)
-            * @return Указатель на транспонированный массив
-            * @note Массив по указателю обязательно должен совпадать по размеру с изображением
-            * @note Начальный массив будет очищен и указатель будет недействителен
-        */
-        float** TransposeArray(float** array);
+        const std::string name;
+        size_t counter = 1;
+        cv::Mat image;
+        int flipped = 0;
+
+        void MagAngles();
         /*!
             * Переводит объект cv::Mat из OpenCV в массив
             * @param mat - объект cv::Mat, который необходимо перевести в массив
@@ -106,21 +91,12 @@ private:
         */
         void ClearMemory(float** array);
         /*!
-            * Очищает всю память выделенную классом (grad_x, grad_y, mod)
+            * Очищает всю память выделенную классом (mag, angles)
         */
         void ClearAll();
 
         /*!
-            * Рассчитывает градиенты изображения по осям x и y c помощью оператора Собеля
-            * @note Использован cv::Sobel из OpenCV
-        */
-        void Gradients();
-        /*!
-            * Для каждого пикселя рассчитывает sqrt(grad_x^2 + grad_y^2)
-        */
-        void Mod();
-        /*!
-            * Транспонирует все изображение, то есть транспонирует каждую состовляющую класса кроме image
+            * Транспонирует изображение
         */
         void Transposition();
     };
@@ -128,12 +104,11 @@ private:
     float diff_angle = -365;
     float part_threshold = 0.2;
     float part_bound = 0.30;
-    float threshold;
+    float threshold[2] {0, 0};
     int bound;
     Image first;
     Image second;
-    size_t index_left;
-    size_t index_right;
+    size_t indexes[4] {0,0,0,0};
     std::vector<float> first_image;
     std::vector<float> second_image;
     std::deque<float> first_hist;
@@ -145,10 +120,9 @@ public:
         * Создает объект класса Histograms
         * @param image_name_0 - путь к первому изображению
         * @param image_name_1 - путь ко второму изображению
-        * @param flip - требуется ли отзеркалить изображение
         * @note Изображения должны иметь одинаковый размер
     */
-    Histograms(const char* image_name_0, const char* image_name_1);
+    Histograms(const std::string image_name_0, const std::string image_name_1);
     ~Histograms() = default;
 
     /*!
@@ -175,11 +149,10 @@ public:
     float CheckPartBound();
 
     /*!
-        * Вычисляет, если требуется, и показывает угол смещения оси
-        * @param accuracy - точность, с которой требуется найти угол
+        * Вычисляет, если требуется, и показывает угол смещения оси с точностью до 0.5 градуса
         * @return найденный угол смещения оси
     */
-    float FindAngle(float accuracy = 0.5);
+    float FindAngle();
     /*!
         * Сохраняет по заданному пути скорректированные изображения. Также позволяет самостоятельно задать угол корректировки
         * @param first_name - путь, по которому надо сохранить первое скорректированное изображение
@@ -189,7 +162,7 @@ public:
     */
     void CorrectImages(char* first_name, char* second_name, float angle = -365);
     /*!
-        * Создает файл с заданным именем, который затем можно визуализировать с помощью
+        * Создает файл с заданным именем, который затем можно визуализировать с помощью файла Отрисовка гистограммы.ipynb
         * @param name - путь к файлу, в который надо будет сохранить гистограммы
     */
     void VisualizeHistograms(char* name);
@@ -209,7 +182,7 @@ private:
         * Находит threshold по первому изображению
         * @return threshold
     */
-    void Threshold();
+    float Threshold(float** mag);
     /*!
         * Находит bound по первому изображению
         * @return bound
@@ -218,11 +191,11 @@ private:
     /*!
         * Находит index_left, index_right
     */
-    void SearchImportantPart();
+    void SearchImportantPart(float** mag, size_t index_left, size_t index_right);
     /*!
         * Выделяет наиболее важную часть изображения
     */
-    void CutImportantPart();
+    void CutImportantPart(float** mag, float** angles, size_t index_left, size_t index_right, std::vector<float>& image);
     /*!
         * Строит гистограмму по наиболее важной части изображения
         * @param array - массив, содержащий наиболее важную часть изображения
@@ -230,7 +203,7 @@ private:
         * @param n_buck - количество бакетов, на которые будет разбита гистограмма
         * @note Минимальное количество бакетов - 360
     */
-    void BuildHistogram(std::vector<float>& array, std::deque<float>& hist, int n_buck = 360);
+    void BuildHistogram(std::vector<float>& array, std::deque<float>& hist);
     /*!
         * Сравнивает гистограммы
         * @param first_hist - первая гистограмма
@@ -240,12 +213,8 @@ private:
     float CompareHistograms(std::deque<float>& first_hist, std::deque<float>& second_hist);
     /*!
         * Ищет угол смещения оси с заданной точностью
-        * @param accuracy - точность, с которой необходимо найти угол
     */
-    void SearchAngle(float accuracy);
+    void SearchAngle();
 };
 
 #endif //___HISTOGRAMS_H
-// сложный тест
-// документация
-// инструкция
